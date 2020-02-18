@@ -4,7 +4,7 @@ import (
 	"log"
 )
 
-func main() {
+func defetTest() {
 	i := 1
 	defer func() {
 		i += 1

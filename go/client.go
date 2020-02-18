@@ -6,7 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func main() {
+func client() {
 
 	c, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:8899/echo", nil)
 	if err != nil {

@@ -7,7 +7,7 @@ public class WebSocketClient : IDisposable
 {
     
     private ClientWebSocket ws;
-    private CancellationToken ct;
+    private CancellationTokenSource ct;
 
     private Action<Byte[]> receiveDelegate;
     private string serverUrl;
@@ -25,9 +25,9 @@ public class WebSocketClient : IDisposable
         try
         {
             ws = new ClientWebSocket();
-            ct = new CancellationToken();
+            ct = new CancellationTokenSource(2000);
             semaphore = new SemaphoreSlim(1,1);
-            await ws.ConnectAsync(new Uri(serverUrl), ct);
+            await ws.ConnectAsync(new Uri(serverUrl), ct.Token);
             StartReceive();
         }
         catch (Exception ex)
@@ -49,7 +49,7 @@ public class WebSocketClient : IDisposable
                     new ArraySegment<byte>(msg),
                     WebSocketMessageType.Binary,
                     true,
-                    ct
+                    ct.Token
                 );
             }
             finally
@@ -68,7 +68,7 @@ public class WebSocketClient : IDisposable
         while (ws.State == WebSocketState.Open)
         {
             var result = new byte[1024];
-            await ws.ReceiveAsync(new ArraySegment<byte>(result), ct);
+            await ws.ReceiveAsync(new ArraySegment<byte>(result), ct.Token);
             receiveDelegate(result);
         }
     }
@@ -80,7 +80,7 @@ public class WebSocketClient : IDisposable
 
     private async void DisposeWebSocket()
     {
-        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure,"NormalClose",ct);
+        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure,"NormalClose",ct.Token);
         ws.Dispose();
         ws = null;
     }
