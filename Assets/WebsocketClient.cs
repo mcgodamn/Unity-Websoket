@@ -1,38 +1,87 @@
 ﻿using System;
 using System.Net.WebSockets;
-using System.Text;
 using System.Threading;
 using UnityEngine;
 
-public class WebsocketClient : MonoBehaviour
+public class WebSocketClient : IDisposable
 {
-    // Start is called before the first frame update
-    void Start()
+    
+    private ClientWebSocket ws;
+    private CancellationToken ct;
+
+    private Action<Byte[]> receiveDelegate;
+    private string serverUrl;
+
+    private SemaphoreSlim semaphore;
+
+    public WebSocketClient(string serverUrl, Action<Byte[]> receiveDelegate)
     {
-        WebSocket();
+        this.receiveDelegate = receiveDelegate;
+        this.serverUrl = serverUrl;
     }
-    public async void WebSocket()
+
+    public async void Start()
     {
         try
         {
-            ClientWebSocket ws = new ClientWebSocket();
-            CancellationToken ct = new CancellationToken();
-            //添加header
-            //ws.Options.SetRequestHeader("X-Token", "eyJhbGciOiJIUzI1N");
-            Uri url = new Uri("ws://127.0.0.1:8899/echo");
-            await ws.ConnectAsync(url, ct);
-            await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes("hello")), WebSocketMessageType.Binary, true, ct); //发送数据
-            while (true)
+            ws = new ClientWebSocket();
+            ct = new CancellationToken();
+            semaphore = new SemaphoreSlim(1,1);
+            await ws.ConnectAsync(new Uri(serverUrl), ct);
+            StartReceive();
+        }
+        catch (Exception ex)
+        {
+            Debug.Log(ex.Message);
+        }
+    }
+
+    public async void Send(byte[] msg)
+    {
+        try
+        {
+            if (ws.State != WebSocketState.Open) return;
+
+            await semaphore.WaitAsync();
+            try
             {
-                var result = new byte[1024];
-                await ws.ReceiveAsync(new ArraySegment<byte>(result), new CancellationToken());//接受数据
-                var str = Encoding.UTF8.GetString(result, 0, result.Length);
-                Debug.Log(str);
+                await ws.SendAsync(
+                    new ArraySegment<byte>(msg),
+                    WebSocketMessageType.Binary,
+                    true,
+                    ct
+                );
+            }
+            finally
+            {
+                semaphore.Release();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            Debug.Log(ex.Message);
         }
+    }
+
+    private async void StartReceive()
+    {
+        while (ws.State == WebSocketState.Open)
+        {
+            var result = new byte[1024];
+            await ws.ReceiveAsync(new ArraySegment<byte>(result), ct);
+            receiveDelegate(result);
+        }
+    }
+
+    public void Dispose()
+    {
+        DisposeWebSocket();
+    }
+
+    private async void DisposeWebSocket()
+    {
+        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure,"NormalClose",ct);
+        ws.Dispose();
+        ws = null;
     }
 }
