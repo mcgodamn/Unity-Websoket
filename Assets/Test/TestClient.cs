@@ -8,7 +8,7 @@ public class TestClient : MonoBehaviour
     void Start()
     {
         client = new WebSocketClient(
-            "ws://127.0.0.1:8899/echo",
+            "ws://127.0.0.1:8899/gameserver",
             (result)=>{
                 var str = Encoding.UTF8.GetString(result, 0, result.Length);
                 Debug.Log(str);
