@@ -5,7 +5,6 @@ using UnityEngine;
 
 public class WebSocketClient : IDisposable
 {
-    
     private ClientWebSocket ws;
     private CancellationTokenSource ct;
 
@@ -69,7 +68,6 @@ public class WebSocketClient : IDisposable
         {
             while (ws.State == WebSocketState.Open)
             {
-                Debug.Log(ws.State);
                 var result = new byte[1024];
                 await ws.ReceiveAsync(new ArraySegment<byte>(result), ct.Token);
                 receiveDelegate(result);
